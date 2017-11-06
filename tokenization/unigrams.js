@@ -7,7 +7,7 @@ var DATABASE_CONFIG = {
     password: 'password'
 };
 
-var _reset = false;
+var _reset = true;
 var _limit = 10000;
 
 // -----------------------------
@@ -35,16 +35,37 @@ require("jsdom").env("", function(err, window) {
 // -------------------------------
 
 var table_name = 'analysis_unigrams_text_20171106';
-const table_object = sequelize.define('analysis_unigrams_text_20171106', {
+const table_object = sequelize.define(table_name, {
     annotation_id: { type: Sequelize.INTEGER },
     unigrams_text: { type: Sequelize.TEXT },
 }, {
 	timestamps: false,
 });
 
+var wordbag_name = 'analysis_unigrams_wordbag_20171106';
+const wordbag_object = sequelize.define(wordbag_name, {
+    annotation_id: { type: Sequelize.INTEGER },
+	word_id: {type: Sequelize.INTEGER},
+	frequency: {type: Sequelize.INTEGER}
+}, {
+	timestamps: false,
+});
+
+var word_pos_name = 'analysis_word_pos_20171106';
+const word_pos_object = sequelize.define(word_pos_name, {
+    word: {type: Sequelize.TEXT},
+	pos: {type: Sequelize.TEXT}
+}, {
+	timestamps: false,
+});
+
 var create_table = function (_callback) {
 	table_object.sync({force: _reset}).then(function () {
-		_callback();
+		word_pos_object.sync({force: _reset}).then(function () {
+			word_pos_object.sync().then(function () {
+				_callback();
+			});
+		});
 	});
 };
 
@@ -87,6 +108,8 @@ var convert_to_unigrams_text = function (_text) {
 	for (var _i = 0; _i < _text.length; _i++) {
 		var _word = _text.substr(_i, 1);
 		if (_word.trim() === "") {
+			_output.push(_prev_word);
+			_prev_word = null;
 			continue;
 		}
 		
@@ -106,36 +129,80 @@ var convert_to_unigrams_text = function (_text) {
 	return _output;
 };
 
+var convert_to_word_vector = function (_word_array) {
+	var _output = {};
+	
+	for (var _i = 0; _i < _word_array.length; _i++) {
+		var _word = _word_array[_i];
+		if (typeof(_output[_word]) === "undefined") {
+			_output[_word] = 0;
+		}
+		_output[_word]++;
+	}
+	
+	return _output;
+};
+
+var wordbag_insert = function(_annotation_id, _word_vector {
+	for (var _word in _word_vector) {
+		var _freq = _word_vector[_word];
+		
+		// 先查查看有沒有這個字
+		word_pos_object
+			.findOrCreate(where: {word: _word})
+			.spread(function (_result, _create) {
+				var _word_id = _result.id;
+				
+				wordbag_object.create({
+					annotation_id: _annotation_id,
+					word_id: _word_id,
+					frequency: _freq
+				});
+			});
+	}
+};
+
+var unigrams_text_insert = function (annotation_id, note) {
+	var _unigrams_text = note;
+	//console.log(_unigrams_text);
+	if (_unigrams_text !== null && 
+		(_unigrams_text.trim() === ""  || _unigrams_text.trim() === "''" )  ) {
+		_unigrams_text = null;
+	}
+	
+	if (_unigrams_text !== null) {
+		note = strip_tags(note);
+		var _unigrams_text_array = convert_to_unigrams_text(note);
+		_unigrams_text = _unigrams_text_array.join(" ");
+		
+		// -------------------
+		var _word_vector = convert_to_word_vector(_unigrams_text_array);
+		wordbag_insert(_word_vector);
+	}
+	
+	
+	table_object.create({
+		annotation_id: annotation_id,
+		unigrams_text: _unigrams_text
+	});
+	
+	// ------------------------------------
+	
+	var _abs = _unigrams_text;
+	if (_abs === null) {
+		_abs = "";
+	}
+	if (_abs.length > 50) {
+		_abs = _abs.substr(0, 50) + "...";
+	}
+	console.log("Process " + annotation_id + ": " + _abs);
+};
+
 // -------------------
 
 create_table(function () {
 	select_note(function (annotation_id, note) {
-		var _unigrams_text = note;
-		//console.log(_unigrams_text);
-		if (_unigrams_text !== null && 
-			(_unigrams_text.trim() === ""  || _unigrams_text.trim() === "''" )  ) {
-			_unigrams_text = null;
-		}
-		
-		if (_unigrams_text !== null) {
-			note = strip_tags(note);
-			var _unigrams_text = convert_to_unigrams_text(note);
-			_unigrams_text = _unigrams_text.join(" ");
-		}
-		table_object.create({
-			annotation_id: annotation_id,
-			unigrams_text: _unigrams_text
-		});
-		
-		
-		var _abs = _unigrams_text;
-		if (_abs === null) {
-			_abs = "";
-		}
-		if (_abs.length > 50) {
-			_abs = _abs.substr(0, 50) + "...";
-		}
-		console.log("Process " + annotation_id + ": " + _abs);
+		unigrams_text_insert(annotation_id, note);
 	});
 	
 	console.log("finish");
