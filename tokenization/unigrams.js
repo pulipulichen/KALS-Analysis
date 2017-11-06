@@ -1,79 +1,59 @@
 
 // 不管怎樣，先連上資料庫吧
-var DATABASE_CONFIG = {
+DATABASE_CONFIG = {
     host: "localhost",
     database: 'pc_pudding_2011_kals',
     username: 'kals',
     password: 'password'
 };
 
-var _reset = true;
-var _limit = 10000;
+RESET = true;
+LIMIT = 1000000;
 
 // -----------------------------
-
-const Sequelize = require('sequelize');
-const sequelize = new Sequelize(DATABASE_CONFIG['database']
-    , DATABASE_CONFIG['username']
-    , DATABASE_CONFIG['password'], {
-  host: DATABASE_CONFIG['host'],
-  dialect: 'postgres',
-  logging: false
-});
-
-// jQuery
-var $
-require("jsdom").env("", function(err, window) {
-    if (err) {
-        console.error(err);
-        return;
-    }
-
-    $ = require("jquery")(window);
-});
+require("../utils/database.js");
+require("../utils/jquery.js");
+require("../utils/string_utils.js");
+require("../utils/word_bag_utils.js");
 
 // -------------------------------
 
 var table_name = 'analysis_unigrams_text_20171106';
-const table_object = sequelize.define(table_name, {
-    annotation_id: { type: Sequelize.INTEGER },
-    unigrams_text: { type: Sequelize.TEXT },
-}, {
-	timestamps: false,
+const table_object = sequelize_create_table(table_name, {
+    annotation_id: "INTEGER",
+    unigrams_text: "TEXT"
 });
 
 var wordbag_name = 'analysis_unigrams_wordbag_20171106';
-const wordbag_object = sequelize.define(wordbag_name, {
-    annotation_id: { type: Sequelize.INTEGER },
-	word_id: {type: Sequelize.INTEGER},
-	frequency: {type: Sequelize.INTEGER}
-}, {
-	timestamps: false,
+const wordbag_object = sequelize_create_table(wordbag_name, {
+    annotation_id: "INTEGER",
+	word_id: "INTEGER",
+	frequency: "INTEGER"
 });
 
 var word_pos_name = 'analysis_word_pos_20171106';
-const word_pos_object = sequelize.define(word_pos_name, {
-    word: {type: Sequelize.TEXT},
-	pos: {type: Sequelize.TEXT}
-}, {
-	timestamps: false,
+const word_pos_object = sequelize_create_table(word_pos_name, {
+    word: "TEXT",
+	pos: "TEXT"
 });
 
 var create_table = function (_callback) {
-	table_object.sync({force: _reset}).then(function () {
-		word_pos_object.sync({force: _reset}).then(function () {
-			word_pos_object.sync().then(function () {
+	table_object.sync({force: RESET}).then(function () {
+		wordbag_object.sync({force: RESET}).then(function () {
+			word_pos_object.sync({force: RESET}).then(function () {
 				_callback();
 			});
 		});
 	});
 };
 
+// -----------------------------
+
 var select_note = function (_callback) {
 	var select_query = "select annotation_id, note "
 		+ " from annotation left join " + table_name + "s using (annotation_id)"
 		+ " where unigrams_text IS NULL"
-		+ " limit " + _limit;
+		+ " limit " + LIMIT;
         //console.log(select_query);
 	sequelize.query(select_query).spread((results, metadata) => {
 		for (var _i = 0; _i < results.length; _i++) {
@@ -85,17 +65,7 @@ var select_note = function (_callback) {
 	});
 };
 
-var strip_tags = function (_text) {
-	if (_text === null || _text === undefined) {
-		return "";
-	}
-	return $('<div>' + _text + '</div>').text().trim();
-};
 
-var is_english_number = function (_val) {
-	var english = /^[A-Za-z0-9\.]*$/;
-	return (english.test(_val));
-}
 
 var convert_to_unigrams_text = function (_text) {
 	var _output = [];
@@ -129,27 +99,14 @@ var convert_to_unigrams_text = function (_text) {
 	return _output;
 };
 
-var convert_to_word_vector = function (_word_array) {
-	var _output = {};
-	
-	for (var _i = 0; _i < _word_array.length; _i++) {
-		var _word = _word_array[_i];
-		if (typeof(_output[_word]) === "undefined") {
-			_output[_word] = 0;
-		}
-		_output[_word]++;
-	}
-	
-	return _output;
-};
 
-var wordbag_insert = function(_annotation_id, _word_vector {
+var wordbag_insert = function(_annotation_id, _word_vector) {
 	for (var _word in _word_vector) {
 		var _freq = _word_vector[_word];
-		
+		console.log([_annotation_id, _word, _freq]);
 		// 先查查看有沒有這個字
 		word_pos_object
-			.findOrCreate(where: {word: _word})
+			.findOrCreate({where: {word: _word}, defaults: {word: _word}})
 			.spread(function (_result, _create) {
 				var _word_id = _result.id;
 				
@@ -158,6 +115,7 @@ var wordbag_insert = function(_annotation_id, _word_vector {
 					word_id: _word_id,
 					frequency: _freq
 				});
+				console.log([_annotation_id, _word_id, _freq]);
 			});
 	}
 };
@@ -176,8 +134,9 @@ var unigrams_text_insert = function (annotation_id, note) {
 		_unigrams_text = _unigrams_text_array.join(" ");
 		
 		// -------------------
-		var _word_vector = convert_to_word_vector(_unigrams_text_array);
-		wordbag_insert(_word_vector);
+		var _word_vector = convert_to_word_bag(_unigrams_text_array);
+		//console.log(_word_vector);
+		wordbag_insert(annotation_id, _word_vector);
 	}
 	
 	
