@@ -8,13 +8,19 @@ DATABASE_CONFIG = {
 };
 
 RESET = true;
-LIMIT = 1000000;
+//LIMIT = 1000000;
+LIMIT = 10;
 
 // -----------------------------
 require("../utils/database.js");
 require("../utils/jquery.js");
 require("../utils/string_utils.js");
 require("../utils/word_bag_utils.js");
+nodejieba = require("nodejieba");
+nodejieba.load({
+  userDict: './userdict.utf8',
+});
+pos = require('pos');
 
 // -------------------------------
 
@@ -65,7 +71,7 @@ var select_note = function (_callback) {
     });
 };
 
-
+// -----------------------------
 
 var convert_to_unigrams_text = function (_text) {
     var _output = [];
@@ -97,14 +103,25 @@ var convert_to_unigrams_text = function (_text) {
     return _output;
 };
 
+// -----------------------------
+
+var _english_stack = [];
 
 var wordbag_insert = function (_annotation_id, _word_vector) {
     for (var _word in _word_vector) {
         var _freq = _word_vector[_word];
-        console.log([_annotation_id, _word, _freq]);
+        //console.log([_annotation_id, _word, _freq]);
         // 先查查看有沒有這個字
+        var _defaults = {word: _word};
+        if (_word.substr(0, 7) === "http://" || _word.substr(0, 8) === "https://") {
+            _defaults["pos"] = "PULI-url";
+        }
+        else if (_word.substr(0, 2) === "p.") {
+            _defaults["pos"] = "PULI-page_number";
+        }
+        
         word_pos_object
-                .findOrCreate({where: {word: _word}, defaults: {word: _word}})
+                .findOrCreate({where: {word: _word}, defaults: _defaults})
                 .spread(function (_result, _create) {
                     var _word_id = _result.id;
 
@@ -113,7 +130,7 @@ var wordbag_insert = function (_annotation_id, _word_vector) {
                         word_id: _word_id,
                         frequency: _freq
                     });
-                    console.log([_annotation_id, _word_id, _freq]);
+                    //console.log([_annotation_id, _word_id, _freq]);
                 });
     }
 };
@@ -128,13 +145,18 @@ var unigrams_text_insert = function (annotation_id, note) {
 
     if (_unigrams_text !== null) {
         note = strip_tags(note);
+        
         var _unigrams_text_array = convert_to_unigrams_text(note);
         _unigrams_text = _unigrams_text_array.join(" ");
-
-        // -------------------
-        var _word_vector = convert_to_word_bag(_unigrams_text_array);
-        //console.log(_word_vector);
-        wordbag_insert(annotation_id, _word_vector);
+        
+        // ----------------------
+        
+        word_pos_insert(_unigrams_text, function () {
+            // -------------------
+            var _word_vector = convert_to_word_bag(_unigrams_text_array);
+            //console.log(_word_vector);
+            wordbag_insert(annotation_id, _word_vector);
+        });
     }
 
 
@@ -155,12 +177,143 @@ var unigrams_text_insert = function (annotation_id, note) {
     console.log("Process " + annotation_id + ": " + _abs);
 };
 
+var _added_word = {};
+
+var word_pos_insert = function (_text, _callback) {
+    var _jieba_result = nodejieba.tag(_text);
+    //console.log(_jieba_result);
+    //for (var _i = 0; _i < _jieba_result.length; _i++) {
+	var _next = function (_i) {
+		_i++;
+		setTimeout(function () {
+			_loop(_i);
+		},0);
+	};
+	
+	var _last_is_english = false;
+		
+    var _loop = function (_i) {
+        if (_i === _jieba_result.length) {
+			if (_last_is_english === true) {
+				_last_is_english = false;
+				
+				// 開始剖析其他的
+				english_word_insert(_english_stack, function () {
+					_english_stack = [];
+					//_i--;
+					//_next(_i);
+					_callback();
+				});
+				//return;
+			}
+			else {
+				_callback();
+			}
+            return;
+        }
+        
+        var _word = _jieba_result[_i].word.trim();
+        
+        if (_word === "" 
+                || typeof(_added_word[_word]) !== "undefined" 
+                || _word === null ) {
+            return _next(_i);
+        }
+        
+        _added_word[_word] = true;
+        
+        var _pos = _jieba_result[_i].tag;
+        //console.log([_word, _pos]);
+		
+		if (_pos === "eng") {
+			_last_is_english = true;
+			_english_stack.push(_word);
+			return _next(_i);
+		}
+		else if (_last_is_english === true) {
+			_last_is_english = false;
+			
+			// 開始剖析其他的
+			english_word_insert(_english_stack, function () {
+				_english_stack = [];
+				_i--;
+				_next(_i);
+			});
+			return;
+		}
+        
+        if (_pos.trim() === "" || _pos === null) {
+            console.log(["null pos", _word, _pos]);
+        }
+        
+        word_pos_object
+            .findOrCreate({where: {word: _word}
+                , defaults: {word: _word, pos: _pos}})
+            .spread(function () {
+                return _next(_i);
+            });
+        
+    };
+    _loop(0);
+};
+
+english_word_insert = function (_english_text, _callback) {
+	if (typeof(_english_text.join) === "function") {
+		_english_text = _english_text.join(" ");
+	}
+	
+	var words = new pos.Lexer().lex(_english_text);
+	var tagger = new pos.Tagger();
+	var taggedWords = tagger.tag(words);
+	var _words_array = [];
+	var _exists_word = {};
+	
+	for (i in taggedWords) {
+		var taggedWord = taggedWords[i];
+		var word = taggedWord[0];
+		var tag = taggedWord[1];
+		//console.log(word + " /" + tag);
+		
+		//_words_json[word] = tag;
+		if (typeof(_exists_word[word]) === "boolean") {
+			continue;
+		}
+		_exists_word[word] = true;
+		_words_array.push(taggedWord);
+	}
+	
+	var _next = function (_i) {
+		_i++;
+		if (_i === _words_array.length) {
+			_callback();
+			return;
+		}
+		else {
+			_loop(_i);
+		}
+	};
+	
+	var _loop = function (_i) {
+		var _word = _words_array[_i][0];
+		var _pos = _words_array[_i][1];
+		_pos = "eng-" + _pos;
+		//console.log(["eng", _word, _pos]);
+		word_pos_object
+             .findOrCreate({where: {word: _word}
+                , defaults: {word: _word, pos: _pos}})
+            .spread(function () {
+                return _next(_i);
+            });
+	};
+	
+	_loop(0);
+};
+
 // -------------------
 
 create_table(function () {
     select_note(function (annotation_id, note) {
         unigrams_text_insert(annotation_id, note);
+        console.log("finish");
     });
-
-    console.log("finish");
 });

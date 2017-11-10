@@ -21,3 +21,17 @@ rma.featset = RakutenMA.default_featset_ja;
 // With a disastrous result, since the model is empty!
 console.log(rma.tokenize("彼は新しいtest仕事12でき4.3っと成4. 3功するだろう。"));
 
+var pos = require('pos');
+var words = new pos.Lexer().lex('This is some sample text. This text can contain multiple sentences.');
+var tagger = new pos.Tagger();
+var taggedWords = tagger.tag(words);
+for (i in taggedWords) {
+    var taggedWord = taggedWords[i];
+    var word = taggedWord[0];
+    var tag = taggedWord[1];
+    console.log(word + " /" + tag);
+}
+ 
+// extend the lexicon 
+//tagger.extendLexicon({'Obama': ['NNP']});
+//tagger.tag(['Mr', 'Obama']);
