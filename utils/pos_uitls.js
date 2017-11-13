@@ -12,6 +12,10 @@ chinese_pos_tagger = function (_text) {
     var _eng_stack = [];
     var _last_is_eng = false;
     
+    if (typeof(_text.join) === "function") {
+        _text = _text.join(" ");
+    }
+    
     var _jieba_tag_result = nodejieba.tag(_text);
     var _output_result = [];
     
