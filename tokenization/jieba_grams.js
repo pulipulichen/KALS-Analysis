@@ -30,7 +30,7 @@ const table_object = sequelize_create_table_object(table_name, {
 _table_objects.push(table_object);
 */
 
-var wordbag_name = 'analysis_unigrams_wordbag_20171113';
+var wordbag_name = 'analysis_jieba_wordbag_20171113';
 const wordbag_object = sequelize_create_table_object(wordbag_name, {
     annotation_id: "INTEGER",
     word: "TEXT",
@@ -70,8 +70,8 @@ var _unigrams_insert_database = function (_annotation_results) {
     for (var _i = 0; _i < _annotation_results.length; _i++) {
         var _annotation_id = _annotation_results[_i].annotation_id;
         var _note = _annotation_results[_i].note;
-        var _unigrams_text = unigrams_splitor(_note);
-        var _tag_result = chinese_pos_tagger(_unigrams_text);
+        //var _unigrams_text = unigrams_splitor(_note);
+        var _tag_result = chinese_pos_tagger(_note);
         
         // --------------------
         

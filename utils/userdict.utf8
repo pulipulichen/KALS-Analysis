@@ -40,3 +40,10 @@
 ． 99999 W-SEPARATION-DOT
 / 99999 w-SLASH
 \ 99999 w-FORWARD-SLASH
+http:// 99999 url
+https:// 99999 url
+:// 99999 url
+telnet:// 99999 url
+ssh:// 99999 url
+ftp:// 99999 url
+sftp:// 99999 url

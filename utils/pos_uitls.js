@@ -1,3 +1,5 @@
+require("../utils/string_utils.js");
+
 nodejieba = require("nodejieba");
 nodejieba.load({
   dict: '../utils/dict.big.txt',
@@ -8,8 +10,6 @@ englishPos = require('pos');
 englishTagger = new englishPos.Tagger();
 
 chinese_pos_tagger = function (_text) {
-    var _eng_stack = [];
-    var _last_is_eng = false;
     
     if (typeof(_text.join) === "function") {
         _text = _text.join(" ");
@@ -19,11 +19,14 @@ chinese_pos_tagger = function (_text) {
     var _jieba_tag_result = nodejieba.tag(_text);
     var _output_result = [];
     
+    var _eng_stack = [];
+    var _last_is_eng = false;
+    
+    var _url_string = "";
     
     for (var _i in _jieba_tag_result) {
         var _word = _jieba_tag_result[_i].word.trim();
         var _tag = _jieba_tag_result[_i].tag;
-        
         
         var _next_word = null;
         var _next_id = (parseInt(_i)+1);
@@ -33,6 +36,28 @@ chinese_pos_tagger = function (_text) {
         if ((_word === "." || _word === "・") 
                 && _next_word === _word ) {
             _tag = "eng";
+        }
+        
+        if (_url_string === "" && _tag === "url") {
+            _url_string = _word;
+            continue;
+        }
+        else if (_url_string !== "") {
+            if (_tag === "eng" || _tag.substr(0,2) === "w-") {
+                _url_string = _url_string + _word;
+                continue;
+            }
+            else if (is_valid_url(_url_string + _word) === true) {
+                _url_string = _url_string + _word;
+                continue;
+            }
+            else {
+                _output_result.push({
+                    word: _url_string,
+                    tag: "url"
+                });
+                _url_string = "";
+            }
         }
         
         if (_word === "") {
