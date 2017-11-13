@@ -16,63 +16,99 @@ require("../utils/database.js");
 require("../utils/jquery.js");
 require("../utils/string_utils.js");
 require("../utils/word_bag_utils.js");
-nodejieba = require("nodejieba");
-nodejieba.load({
-  userDict: './userdict.utf8',
-});
-pos = require('pos');
+require("../utils/pos_uitls.js");
 
 // -------------------------------
 
-var table_name = 'analysis_unigrams_text_20171106';
-const table_object = sequelize_create_table(table_name, {
+var _table_objects = [];
+/*
+var table_name = 'analysis_unigrams_text_20171113';
+const table_object = sequelize_create_table_object(table_name, {
     annotation_id: "INTEGER",
     unigrams_text: "TEXT"
 });
+_table_objects.push(table_object);
+*/
 
-var wordbag_name = 'analysis_unigrams_wordbag_20171106';
-const wordbag_object = sequelize_create_table(wordbag_name, {
+var wordbag_name = 'analysis_unigrams_wordbag_20171113';
+const wordbag_object = sequelize_cdreate_table_object(wordbag_name, {
     annotation_id: "INTEGER",
-    word_id: "INTEGER",
+    word: "TEXT",
+    tag: "TEXT",
     frequency: "INTEGER"
 });
-
-var word_pos_name = 'analysis_word_pos_20171106';
-const word_pos_object = sequelize_create_table(word_pos_name, {
-    word: "TEXT",
-    pos: "TEXT"
-});
-
-var create_table = function (_callback) {
-    table_object.sync({force: RESET}).then(function () {
-        wordbag_object.sync({force: RESET}).then(function () {
-            word_pos_object.sync({force: RESET}).then(function () {
-                _callback();
-            });
-        });
-    });
-};
+_table_objects.push(wordbag_object);
 
 // -----------------------------
 
 var select_note = function (_callback) {
     var select_query = "select annotation_id, note "
-            + " from annotation left join " + table_name + "s using (annotation_id)"
-            + " where unigrams_text IS NULL"
+            + " from annotation"
             + " limit " + LIMIT;
     //console.log(select_query);
     sequelize.query(select_query).spread((results, metadata) => {
+        var _annotation_results = [];
+        
         for (var _i = 0; _i < results.length; _i++) {
             var _annotation_id = results[_i]['annotation_id'];
             var _note = results[_i]['note'];
-            _callback(_annotation_id, _note);
+            _note = strip_tags(_note);
+            //_callback(_annotation_id, _note);
+            
+            _annotation_results.push({
+                annotation_id: _annotation_id,
+                note: _note
+            });
         }
         //_callback(results);
+        
+        _callback(_annotation_results);
     });
 };
 
-// -----------------------------
+var _unigrams_insert_database = function (_annotation_results) {
+    for (var _i = 0; _i < _annotation_results.length; _i++) {
+        var _annotation_id = _annotation_results[_i].annotation_id;
+        var _note = _annotation_results[_i].note;
+        var _unigrams_text = unigrams_splitor(_note);
+        var _tag_result = chinese_pos_tagger(_unigrams_text);
+        
+        // --------------------
+        
+        var _wordbag = {};
+        
+        for (var _j = 0; _j < _tag_result.length; _j++) {
+            var _word = _tag_result[_j].word;
+            var _tag = _tag_result[_j].tag;
+            
+            if (typeof(_wordbag[_word]) === "undefined") {
+                _wordbag[_word] = {
+                    tag: _tag,
+                    frequency: 0
+                };
+            }
+            _wordbag[_word].frequency++;
+        }
+        
+        // --------------------
+        
+        for (var _word in _wordbag) {
+            var _tag = _wordbag[_word].tag;
+            var _frequency = _wordbag[_word].frequency;
+            wordbag_object.create({
+                annotation_id: _annotation_id,
+                word: _word,
+                tag: _tag,
+                frequency: _frequency
+            });
+        }
+        
+        console.log([_annotation_id, "ok"]);
+    }
+};
 
+// -----------------------------
+/*
 var convert_to_unigrams_text = function (_text) {
     var _output = [];
     if (_text === null || _text === undefined) {
@@ -308,12 +344,13 @@ english_word_insert = function (_english_text, _callback) {
 	
 	_loop(0);
 };
+*/
 
 // -------------------
 
-create_table(function () {
-    select_note(function (annotation_id, note) {
-        unigrams_text_insert(annotation_id, note);
+sequelize_create_tables(_table_objects, RESET, function () {
+    select_note(function (_annotation_results) {
+        _unigrams_insert_database(_annotation_results);
         console.log("finish");
     });
 });

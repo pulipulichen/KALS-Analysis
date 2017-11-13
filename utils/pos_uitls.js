@@ -7,7 +7,6 @@ nodejieba.load({
 englishPos = require('pos');
 englishTagger = new englishPos.Tagger();
 
-
 chinese_pos_tagger = function (_text) {
     var _eng_stack = [];
     var _last_is_eng = false;
@@ -15,6 +14,7 @@ chinese_pos_tagger = function (_text) {
     if (typeof(_text.join) === "function") {
         _text = _text.join(" ");
     }
+    _text = ellipsis_filter(_text);
     
     var _jieba_tag_result = nodejieba.tag(_text);
     var _output_result = [];
@@ -23,6 +23,17 @@ chinese_pos_tagger = function (_text) {
     for (var _i in _jieba_tag_result) {
         var _word = _jieba_tag_result[_i].word.trim();
         var _tag = _jieba_tag_result[_i].tag;
+        
+        
+        var _next_word = null;
+        var _next_id = (parseInt(_i)+1);
+        if (_next_id < _jieba_tag_result.length) {
+            _next_word = _jieba_tag_result[_next_id].word.trim();
+        }
+        if ((_word === "." || _word === "・") 
+                && _next_word === _word ) {
+            _tag = "eng";
+        }
         
         if (_word === "") {
             continue;
@@ -70,10 +81,12 @@ english_pos_tagger = function (_text) {
     var _tag_result = englishTagger.tag(_words);
     //console.log(_tag_result);
     var _output_result = [];
+    
     for (var _i in _tag_result) {
         var taggedWord = _tag_result[_i];
         var _word = taggedWord[0];
         var _tag = taggedWord[1];
+        
         _output_result.push({
             word: _word,
             tag: "eng-" + _tag
@@ -85,6 +98,8 @@ english_pos_tagger = function (_text) {
 // -----------------------------------
 
 unigrams_splitor = function (_text) {
+    _text = ellipsis_filter(_text);
+    
     var _english_stack = [];
     var _is_english_number = function (_val) {
         var english = /^[A-Za-z0-9\.\/_\:]*$/;
@@ -150,4 +165,21 @@ bigram_splitor = function (_text) {
     }
     
     return _output;
+};
+
+ellipsis_filter = function (_text) {
+    // 如果文章裡面有 .. 則一直取代為 …
+    while (_text.indexOf("..") > -1) {
+        _text = _text.split("..").join("…");
+    }
+    
+    while (_text.indexOf("….") > -1) {
+        _text = _text.split("….").join("…");
+    }
+    
+    while (_text.indexOf("……") > -1) {
+        _text = _text.split("……").join("…");
+    }
+    
+    return _text;
 };
