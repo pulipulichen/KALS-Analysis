@@ -1,4 +1,7 @@
 require("../utils/string_utils.js");
+if (typeof($) !== "function") {
+    require("../utils/jquery.js");
+}
 
 nodejieba = require("nodejieba");
 nodejieba.load({
@@ -9,12 +12,15 @@ nodejieba.load({
 englishPos = require('pos');
 englishTagger = new englishPos.Tagger();
 
+if (typeof(chinese_pos_tagger) !== "function") {
+    
 chinese_pos_tagger = function (_text) {
     
     if (typeof(_text.join) === "function") {
         _text = _text.join(" ");
     }
     _text = ellipsis_filter(_text);
+    
     
     var _jieba_tag_result = nodejieba.tag(_text);
     var _output_result = [];
@@ -24,9 +30,11 @@ chinese_pos_tagger = function (_text) {
     
     var _url_string = "";
     
+    //console.log("start");
     for (var _i in _jieba_tag_result) {
         var _word = _jieba_tag_result[_i].word.trim();
         var _tag = _jieba_tag_result[_i].tag;
+        //console.log([_i, _word, _tag]);
         
         var _next_word = null;
         var _next_id = (parseInt(_i)+1);
@@ -39,6 +47,16 @@ chinese_pos_tagger = function (_text) {
         }
         
         if (_url_string === "" && _tag === "url") {
+            if (_last_is_eng === true) {
+                // 處理英文的輸出結果
+                //console.log(_eng_stack);
+                var _english_tag_result = english_pos_tagger(_eng_stack);
+                for (var _j in _english_tag_result) {
+                    _output_result.push(_english_tag_result[_j]);
+                }
+                _eng_stack = [];
+                _last_is_eng = false;
+            }
             _url_string = _word;
             continue;
         }
@@ -47,7 +65,7 @@ chinese_pos_tagger = function (_text) {
                 _url_string = _url_string + _word;
                 continue;
             }
-            else if (is_valid_url(_url_string + _word) === true) {
+            else if (_word !== "" && is_valid_url(_url_string + _word) === true) {
                 _url_string = _url_string + _word;
                 continue;
             }
@@ -92,11 +110,14 @@ chinese_pos_tagger = function (_text) {
             _output_result.push(_english_tag_result[_j]);
         }
     }
-    
+    //console.log("finish");
     return _output_result;
 };
+}   // if (typeof(chinese_pos_tagger) === "function") {
 
 // ----------------------------------
+
+if (typeof(english_pos_tagger) !== "function") {
 
 english_pos_tagger = function (_text) {
     if (typeof(_text.join) === "function") {
@@ -118,9 +139,12 @@ english_pos_tagger = function (_text) {
         });
     }
     return _output_result;
-};
+};    
+}   // if (typeof(english_pos_tagger) !== "function") {
 
 // -----------------------------------
+
+if (typeof(unigrams_splitor) !== "function") {
 
 unigrams_splitor = function (_text) {
     _text = ellipsis_filter(_text);
@@ -161,15 +185,18 @@ unigrams_splitor = function (_text) {
     
     return _output;
 };
+}   // if (typeof(unigrams_splitor) !== "function") {
 
-bigram_splitor = function (_text) {
+if (typeof(multi_gram_splitor) !== "function") {
+
+multi_gram_splitor = function (_text, _window_length) {
     var _is_english_number = function (_val) {
         var english = /^[A-Za-z0-9\.\/_\:]*$/;
         return (english.test(_val));
     };
     
     var _unigrams = unigrams_splitor(_text);
-    var _window_length = 2;
+    //var _window_length = 2;
     
     var _output = [];
     for (var _i = 0; _i < _unigrams.length- (_window_length+1) ; _i++) {
@@ -191,20 +218,29 @@ bigram_splitor = function (_text) {
     
     return _output;
 };
+}   // if (typeof(multi_gram_splitor) !== "function") {
 
-ellipsis_filter = function (_text) {
-    // 如果文章裡面有 .. 則一直取代為 …
-    while (_text.indexOf("..") > -1) {
-        _text = _text.split("..").join("…");
-    }
-    
-    while (_text.indexOf("….") > -1) {
-        _text = _text.split("….").join("…");
-    }
-    
-    while (_text.indexOf("……") > -1) {
-        _text = _text.split("……").join("…");
-    }
-    
-    return _text;
-};
+if (typeof(bigram_splitor) !== "function") {
+    bigram_splitor = function (_text) {
+        return multi_gram_splitor(_text, 2);
+    };
+}   // if (typeof(bigram_splitor) !== "function") {
+
+if (typeof(ellipsis_filter) !== "function") {
+    ellipsis_filter = function (_text) {
+        // 如果文章裡面有 .. 則一直取代為 …
+        while (_text.indexOf("..") > -1) {
+            _text = _text.split("..").join("…");
+        }
+
+        while (_text.indexOf("….") > -1) {
+            _text = _text.split("….").join("…");
+        }
+
+        while (_text.indexOf("……") > -1) {
+            _text = _text.split("……").join("…");
+        }
+
+        return _text;
+    };
+}   // if (typeof(ellipsis_filter) !== "function") {
