@@ -1,12 +1,13 @@
-
 // https://github.com/yanyiwu/nodejieba
+require('../utils/pos_uitls.js');
 
-var _text = "人工智慧(AI)與深度學習(Deep learning)是當今非常熱門的議題！這些技術使用了多個隱藏層的神經網路(multi-hidden-layer neural networks)，又稱為深度學習模型(deep learning models)，電腦科學家已經用它們達成許多驚人的結果，像是分析圖片與演講語音等等。";
+var _text = "人工智慧(AI)與深度學習(Deep learning)是當今非常熱門的議題！這些技術使用了多個隱藏層的神經網路(multi-hidden-layer neural networks)，又稱為深度學習模型(deep learning models)，電腦科學家已經用它們達成許多驚人的結果，像是分析圖片與演講語音等等。Deep learning";
+//console.log(chinese_pos_tagger(_text));
 
 
+console.log(unigrams_splitor(_text));
 
 
-console.log(pos_tagger(_text));
 
 //var result = nodejieba.cutForSearch("南京市长江大桥");
 //console.log(result);

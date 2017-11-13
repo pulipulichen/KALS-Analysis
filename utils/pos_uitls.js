@@ -1,14 +1,14 @@
 nodejieba = require("nodejieba");
 nodejieba.load({
-  dict: 'dict.big.txt',
-  userDict: 'userdict.utf8'
+  dict: '../utils/dict.big.txt',
+  userDict: '../utils/userdict.utf8'
 });
 
 englishPos = require('pos');
 englishTagger = new englishPos.Tagger();
 
 
-var chinese_pos_tagger = function (_text) {
+chinese_pos_tagger = function (_text) {
     var _eng_stack = [];
     var _last_is_eng = false;
     
@@ -31,7 +31,7 @@ var chinese_pos_tagger = function (_text) {
         else if (_tag !== "eng" && _last_is_eng === true) {
             // 處理英文的輸出結果
             //console.log(_eng_stack);
-            var _english_tag_result = _english_pos_tagger(_eng_stack);
+            var _english_tag_result = english_pos_tagger(_eng_stack);
             for (var _j in _english_tag_result) {
                 _output_result.push(_english_tag_result[_j]);
             }
@@ -53,8 +53,9 @@ var chinese_pos_tagger = function (_text) {
     return _output_result;
 };
 
+// ----------------------------------
 
-var english_pos_tagger = function (_text) {
+english_pos_tagger = function (_text) {
     if (typeof(_text.join) === "function") {
         _text = _text.join(" ");
     }
@@ -72,4 +73,44 @@ var english_pos_tagger = function (_text) {
         });
     }
     return _output_result;
+};
+
+// -----------------------------------
+
+unigrams_splitor = function (_text) {
+    var _english_stack = [];
+    var _is_english_number = function (_val) {
+        var english = /^[A-Za-z0-9\.\/_\:]*$/;
+        return (english.test(_val));
+    };
+    var _last_is_english = false;
+    
+    var _output = [];
+    for (var _i = 0; _i < _text.length; _i++) {
+        var _word = _text.substr(_i, 1);
+        if (_is_english_number(_word) === true) {
+            _english_stack.push(_word);
+            _last_is_english = true;
+        }
+        else {
+            if (_last_is_english === true) {
+                // 上一個是英文，這個字不是英文
+                var _english_word = _english_stack.join("");
+                _output.push(_english_word);
+                _last_is_english = false;
+                _english_stack = [];
+            }
+            
+            if (_word.trim() !== "") {
+                _output.push(_word);
+            }
+        }
+    }
+    if (_last_is_english === true) {
+        // 上一個是英文，這個字不是英文
+        var _english_word = _english_stack.join("");
+        _output.push(_english_word);
+    }
+    
+    return _output;
 };
