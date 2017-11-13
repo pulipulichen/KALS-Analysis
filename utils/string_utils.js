@@ -1,6 +1,6 @@
 is_english_number = function (_val) {
-	var english = /^[A-Za-z0-9\.\/_\:]*$/;
-	return (english.test(_val));
+    var english = /^[A-Za-z0-9\.\/_\:]*$/;
+    return (english.test(_val));
 };
 
 
