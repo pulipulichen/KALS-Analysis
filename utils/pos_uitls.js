@@ -44,10 +44,13 @@ chinese_pos_tagger = function (_text) {
             tag: _tag
         });
     }
+    
     if (_last_is_eng === true) {
         // 處理英文的輸出結果
         var _english_tag_result = english_pos_tagger(_eng_stack);
-        _output_result.concat(_english_tag_result);
+        for (var _j in _english_tag_result) {
+            _output_result.push(_english_tag_result[_j]);
+        }
     }
     
     return _output_result;
@@ -63,13 +66,13 @@ english_pos_tagger = function (_text) {
     var _tag_result = englishTagger.tag(_words);
     //console.log(_tag_result);
     var _output_result = [];
-    for (_i in _tag_result) {
+    for (var _i in _tag_result) {
         var taggedWord = _tag_result[_i];
         var _word = taggedWord[0];
         var _tag = taggedWord[1];
         _output_result.push({
             word: _word,
-            tag: _tag
+            tag: "eng-" + _tag
         });
     }
     return _output_result;
@@ -110,6 +113,36 @@ unigrams_splitor = function (_text) {
         // 上一個是英文，這個字不是英文
         var _english_word = _english_stack.join("");
         _output.push(_english_word);
+    }
+    
+    return _output;
+};
+
+bigram_splitor = function (_text) {
+    var _is_english_number = function (_val) {
+        var english = /^[A-Za-z0-9\.\/_\:]*$/;
+        return (english.test(_val));
+    };
+    
+    var _unigrams = unigrams_splitor(_text);
+    var _window_length = 2;
+    
+    var _output = [];
+    for (var _i = 0; _i < _unigrams.length- (_window_length+1) ; _i++) {
+        var _window_word = _unigrams[_i];
+        for (var _j = 1; _j < _window_length; _j++) {
+            var _window_i = _j+_i;
+            var _next_word = _unigrams[_window_i];
+            
+            var _last_word = _window_word.substr(_window_word.length-1, 1);
+            var _first_word = _next_word.substr(0,1);
+            if (_is_english_number(_last_word) === true 
+                    && _is_english_number(_first_word) === true) {
+                _window_word = _window_word + " ";
+            }
+            _window_word = _window_word + _next_word;
+        }
+        _output.push(_window_word);
     }
     
     return _output;
