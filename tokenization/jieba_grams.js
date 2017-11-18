@@ -34,8 +34,8 @@ var wordbag_name = 'analysis_jieba_wordbag_20171113';
 const wordbag_object = sequelize_create_table_object(wordbag_name, {
     annotation_id: "INTEGER",
     word: "TEXT",
-    tag: "TEXT",
-    frequency: "INTEGER"
+    tag: "TEXT"
+    //frequency: "INTEGER"
 });
 _table_objects.push(wordbag_object);
 
@@ -75,31 +75,16 @@ var _unigrams_insert_database = function (_annotation_results) {
         
         // --------------------
         
-        var _wordbag = {};
+        //var _wordbag = {};
         
         for (var _j = 0; _j < _tag_result.length; _j++) {
             var _word = _tag_result[_j].word;
             var _tag = _tag_result[_j].tag;
             
-            if (typeof(_wordbag[_word]) === "undefined") {
-                _wordbag[_word] = {
-                    tag: _tag,
-                    frequency: 0
-                };
-            }
-            _wordbag[_word].frequency++;
-        }
-        
-        // --------------------
-        
-        for (var _word in _wordbag) {
-            var _tag = _wordbag[_word].tag;
-            var _frequency = _wordbag[_word].frequency;
             wordbag_object.create({
                 annotation_id: _annotation_id,
                 word: _word,
-                tag: _tag,
-                frequency: _frequency
+                tag: _tag
             });
         }
         

@@ -30,11 +30,11 @@ const table_object = sequelize_create_table_object(table_name, {
 _table_objects.push(table_object);
 */
 
-var wordbag_name = 'analysis_unigrams_wordbag_20171113';
+var wordbag_name = 'analysis_anchor_text_jieba_wordbag_20171113';
 const wordbag_object = sequelize_create_table_object(wordbag_name, {
     annotation_id: "INTEGER",
     word: "TEXT",
-    tag: "TEXT",
+    tag: "TEXT"
     //frequency: "INTEGER"
 });
 _table_objects.push(wordbag_object);
@@ -42,8 +42,8 @@ _table_objects.push(wordbag_object);
 // -----------------------------
 
 var select_note = function (_callback) {
-    var select_query = "select annotation_id, note "
-            + " from annotation"
+    var select_query = "select annotation_id, text as note "
+            + " from annotation2anchor_text"
             + " limit " + LIMIT;
     //console.log(select_query);
     sequelize.query(select_query).spread((results, metadata) => {
@@ -70,8 +70,8 @@ var _unigrams_insert_database = function (_annotation_results) {
     for (var _i = 0; _i < _annotation_results.length; _i++) {
         var _annotation_id = _annotation_results[_i].annotation_id;
         var _note = _annotation_results[_i].note;
-        var _unigrams_text = unigrams_splitor(_note);
-        var _tag_result = chinese_pos_tagger(_unigrams_text);
+        //var _unigrams_text = unigrams_splitor(_note);
+        var _tag_result = chinese_pos_tagger(_note);
         
         // --------------------
         
@@ -86,31 +86,7 @@ var _unigrams_insert_database = function (_annotation_results) {
                 word: _word,
                 tag: _tag
             });
-            /*
-            if (typeof(_wordbag[_word]) === "undefined") {
-                _wordbag[_word] = {
-                    tag: _tag,
-                    frequency: 0
-                };
-            }
-            _wordbag[_word].frequency++;
-            */
         }
-        
-        // --------------------
-        
-        /*
-        for (var _word in _wordbag) {
-            var _tag = _wordbag[_word].tag;
-            var _frequency = _wordbag[_word].frequency;
-            wordbag_object.create({
-                annotation_id: _annotation_id,
-                word: _word,
-                tag: _tag,
-                frequency: _frequency
-            });
-        }
-        */
         
         console.log([_annotation_id, "ok"]);
     }
